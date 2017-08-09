@@ -1,0 +1,18 @@
+#!/bin/bash
+
+if [ "$1" == "--setup" ]; then
+    ABS_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+    (crontab -l | grep -v $(basename "$0"); echo "3-59/5 * * * * $ABS_PATH") | crontab -
+    exit 0
+fi
+
+INST_ID=$(ec2metadata --instance-id)
+INST_TYPE=$(ec2metadata --instance-type)
+AVAIL_ZONE=$(ec2metadata --availability-zone)
+REGION=${AVAIL_ZONE::-1}
+
+df -k -l --type=ext4 -P | grep ^/ | while read -r line; do
+    UTIL_PERC=$(echo $line | cut -d' ' -f5 | tr -d '%')
+    MOUNT=$(echo $line | cut -d' ' -f6)
+    aws cloudwatch put-metric-data --region $REGION --metric-name DiskSpaceUtilization --namespace Custom/EC2 --unit Percent --value $UTIL_PERC --dimensions InstanceId=$INST_ID,InstanceType=$INST_TYPE,AvailabilityZone=$AVAIL_ZONE,Mount=$MOUNT
+done
