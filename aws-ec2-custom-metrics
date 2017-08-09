@@ -2,7 +2,7 @@
 
 if [ "$1" == "--setup" ]; then
     ABS_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-    (crontab -l | grep -v $(basename "$0"); echo "3-59/5 * * * * $ABS_PATH") | crontab -
+    (crontab -l | grep -v $(basename "$0"); echo "2-59/3 * * * * $ABS_PATH") | crontab -
     exit 0
 fi
 
