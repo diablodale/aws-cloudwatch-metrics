@@ -1,14 +1,22 @@
 #!/bin/bash
 
+ABS_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 if [ "$1" == "--setup" ]; then
-    ABS_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
     (crontab -l | grep -v $(basename "$0"); echo "2-59/3 * * * * $ABS_PATH") | crontab -
+    exit 0
+elif [ "$1" == "--setup-etccrond" ]; then
+    cat > /etc/cron.d/cloudwatch-metrics <<EOF
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+MAILTO=root
+2-59/3 * * * * root $ABS_PATH
+EOF
+    chmod 644 /etc/cron.d/cloudwatch-metrics
     exit 0
 fi
 
-INST_ID=$(ec2metadata --instance-id)
-INST_TYPE=$(ec2metadata --instance-type)
-AVAIL_ZONE=$(ec2metadata --availability-zone)
+INST_ID=$(curl -sS http://169.254.169.254/latest/meta-data/instance-id)
+INST_TYPE=$(curl -sS http://169.254.169.254/latest/meta-data/instance-type)
+AVAIL_ZONE=$(curl -sS http://169.254.169.254/latest/meta-data/placement/availability-zone)
 REGION=${AVAIL_ZONE::-1}
 
 df -k -l --type=ext4 -P | grep ^/ | while read -r line; do
