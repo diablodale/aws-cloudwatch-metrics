@@ -40,8 +40,15 @@ aws cloudwatch put-metric-data --region $REGION --metric-name MemoryUtilization 
 # forward metrics collected by containers
 #####
 
-cd /mnt/ecs-metrics/
+if [ -d /mnt/ecs-metrics ]; then
+    cd /mnt/ecs-metrics
+else
+    exit 0
+fi
 FILES="$(ls *-*.json)"
+if [ -z "$FILES" ]; then
+    exit 0
+fi
 
 # get single array of metric objects
 jq -s '[ .[][] ]' $FILES > merged.json
