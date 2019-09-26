@@ -17,6 +17,7 @@ fi
 INST_ID=$(curl -sS http://169.254.169.254/latest/meta-data/instance-id)
 INST_TYPE=$(curl -sS http://169.254.169.254/latest/meta-data/instance-type)
 AVAIL_ZONE=$(curl -sS http://169.254.169.254/latest/meta-data/placement/availability-zone)
+ECS_CLUSTER=$(grep -E '^ECS_CLUSTER' /etc/ecs/ecs.config | grep -o -E '[^=]+$')
 REGION=${AVAIL_ZONE::-1}
 
 df -k -l --type=ext4 -P | grep ^/ | while read -r line; do
@@ -26,7 +27,7 @@ df -k -l --type=ext4 -P | grep ^/ | while read -r line; do
         # simplify docker managed volume plugin path for metrics
         MOUNT="docker/plugins$(grep -o -E '/[^/]+$' <<< "$MOUNT")"
     fi
-    aws cloudwatch put-metric-data --region $REGION --metric-name DiskSpaceUtilization --namespace Custom/EC2 --unit Percent --value $VOL_UTIL_PERC --dimensions InstanceId=$INST_ID,InstanceType=$INST_TYPE,AvailabilityZone=$AVAIL_ZONE,Mount=$MOUNT
+    aws cloudwatch put-metric-data --region $REGION --metric-name DiskSpaceUtilization --namespace Custom/EC2 --unit Percent --value $VOL_UTIL_PERC --dimensions "InstanceId=${INST_ID},InstanceType=${INST_TYPE},AvailabilityZone=${AVAIL_ZONE}${ECS_CLUSTER:+,ClusterName=}${ECS_CLUSTER},Mount=${MOUNT}"
 done
 
 MEMINFO=$(free -m | grep Mem)
@@ -34,7 +35,7 @@ MEM_TOTAL=$(echo $MEMINFO | cut -d' ' -f2)
 MEM_AVAIL=$(( 100 * $(echo $MEMINFO | cut -d' ' -f7) ))
 MEM_AVAIL_PERC=$(($MEM_AVAIL / $MEM_TOTAL))
 MEM_UTIL_PERC=$((100 - $MEM_AVAIL_PERC))
-aws cloudwatch put-metric-data --region $REGION --metric-name MemoryUtilization --namespace Custom/EC2 --unit Percent --value $MEM_UTIL_PERC --dimensions InstanceId=$INST_ID,InstanceType=$INST_TYPE,AvailabilityZone=$AVAIL_ZONE
+aws cloudwatch put-metric-data --region $REGION --metric-name MemoryUtilization --namespace Custom/EC2 --unit Percent --value $MEM_UTIL_PERC --dimensions "InstanceId=${INST_ID},InstanceType=${INST_TYPE},AvailabilityZone=${AVAIL_ZONE}${ECS_CLUSTER:+,ClusterName=}${ECS_CLUSTER}"
 
 #####
 # forward metrics collected by containers
