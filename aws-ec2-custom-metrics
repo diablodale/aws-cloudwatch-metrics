@@ -57,7 +57,7 @@ xargs /bin/rm -f <<< "$FILES"
 
 # create tsv file of metric objects
 jq -r ".[] | [
-    .time, .availZone, .cluster, .service, .taskId, .containerId, .containerName, .percentMem, .percentCpu
+    .time, .cluster, .service, .taskId, .containerId, .containerName, .percentMem, .percentCpu
 ] | @tsv" merged.json > metrics.tsv
 rm -f merged.json
 
@@ -71,33 +71,41 @@ for chunk in $SPLITS; do
     jq --raw-input "split(\"\t\") | {\
         MetricName: \"MemoryUtilization\",\
         Timestamp: .[0],\
-        Value: (.[7] | tonumber),\
+        Value: (.[6] | tonumber),\
         Unit: \"Percent\",\
         StorageResolution: 60,\
         Dimensions: [\
             {\
                 Name: \"AvailabilityZone\",\
-                Value: .[1]\
+                Value: \"${AVAIL_ZONE}\"\
             },\
             {\
                 Name: \"ClusterName\",\
-                Value: .[2]\
+                Value: .[1]\
+            },\
+            {\
+                Name: \"InstanceId\",\
+                Value: \"${INST_ID}\"\
+            },\
+            {\
+                Name: \"InstanceType\",\
+                Value: \"${INST_TYPE}\"\
             },\
             {\
                 Name: \"ServiceName\",\
-                Value: .[3]\
+                Value: .[2]\
             },\
             {\
                 Name: \"TaskId\",\
-                Value: .[4]\
+                Value: .[3]\
             },\
             {\
                 Name: \"ContainerId\",\
-                Value: .[5]\
+                Value: .[4]\
             },\
             {\
                 Name: \"ContainerName\",\
-                Value: .[6]\
+                Value: .[5]\
             }\
         ]\
     }" $chunk | jq -s . > cloudwatch.json
@@ -106,33 +114,41 @@ for chunk in $SPLITS; do
     jq --raw-input "split(\"\t\") | {\
         MetricName: \"CPUUtilization\",\
         Timestamp: .[0],\
-        Value: (.[8] | tonumber),\
+        Value: (.[7] | tonumber),\
         Unit: \"Percent\",\
         StorageResolution: 60,\
         Dimensions: [\
             {\
                 Name: \"AvailabilityZone\",\
-                Value: .[1]\
+                Value: \"${AVAIL_ZONE}\"\
             },\
             {\
                 Name: \"ClusterName\",\
-                Value: .[2]\
+                Value: .[1]\
+            },\
+            {\
+                Name: \"InstanceId\",\
+                Value: \"${INST_ID}\"\
+            },\
+            {\
+                Name: \"InstanceType\",\
+                Value: \"${INST_TYPE}\"\
             },\
             {\
                 Name: \"ServiceName\",\
-                Value: .[3]\
+                Value: .[2]\
             },\
             {\
                 Name: \"TaskId\",\
-                Value: .[4]\
+                Value: .[3]\
             },\
             {\
                 Name: \"ContainerId\",\
-                Value: .[5]\
+                Value: .[4]\
             },\
             {\
                 Name: \"ContainerName\",\
-                Value: .[6]\
+                Value: .[5]\
             }\
         ]\
     }" $chunk | jq -s . > cloudwatch.json
