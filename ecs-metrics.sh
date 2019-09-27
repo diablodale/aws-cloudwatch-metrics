@@ -37,7 +37,7 @@ jq "[.[] | {time: .read, \
             percentMem: (100 * .memory_stats.usage / (if (.memory_stats.stats.hierarchical_memory_limit == 9223372036854771712) then $MEM_TOTAL else .memory_stats.stats.hierarchical_memory_limit end)), \
             tmpfsMem: (.memory_stats.stats.cache - .memory_stats.stats.active_file - .memory_stats.stats.inactive_file), \
             tmpfsMem2: (.memory_stats.stats.active_anon + .memory_stats.stats.inactive_anon - .memory_stats.stats.rss), \
-            percentCpu: (100 * (.cpu_stats.cpu_usage.total_usage - .precpu_stats.cpu_usage.total_usage) / (.cpu_stats.system_cpu_usage - .precpu_stats.system_cpu_usage)), \
+            percentCpuOfHost: (100 * (.cpu_stats.cpu_usage.total_usage - .precpu_stats.cpu_usage.total_usage) / (.cpu_stats.system_cpu_usage - .precpu_stats.system_cpu_usage)), \
             percentThrottle: (if (.cpu_stats.throttling_data.periods - .precpu_stats.throttling_data.periods) == 0 then 0 else 100 * (.cpu_stats.throttling_data.throttled_periods - .precpu_stats.throttling_data.throttled_periods) / (.cpu_stats.throttling_data.periods - .precpu_stats.throttling_data.periods) end), \
             percentThrottle2: (100 * (.cpu_stats.throttling_data.throttled_time - .precpu_stats.throttling_data.throttled_time) / (.cpu_stats.system_cpu_usage - .precpu_stats.system_cpu_usage)) \
     }]" \

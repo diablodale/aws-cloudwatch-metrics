@@ -57,7 +57,7 @@ xargs /bin/rm -f <<< "$FILES"
 
 # create tsv file of metric objects
 jq -r ".[] | [
-    .time, .cluster, .service, .taskId, .containerId, .containerName, .percentMem, .percentCpu
+    .time, .cluster, .service, .taskId, .containerId, .containerName, .percentMem, .percentCpuOfHost
 ] | @tsv" merged.json > metrics.tsv
 rm -f merged.json
 
@@ -112,7 +112,7 @@ for chunk in $SPLITS; do
     aws cloudwatch put-metric-data --region $REGION --namespace Custom/ECS --metric-data file://cloudwatch.json
 
     jq --raw-input "split(\"\t\") | {\
-        MetricName: \"CPUUtilization\",\
+        MetricName: \"CPUUtilizationHost\",\
         Timestamp: .[0],\
         Value: (.[7] | tonumber),\
         Unit: \"Percent\",\
