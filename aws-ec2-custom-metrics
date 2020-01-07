@@ -1,8 +1,12 @@
 #!/bin/bash -e
 
+# AWS Cloudwatch Custom Metrics for EC2 and ECS
+# Version 1.0.0
+# (c) 2017-2020 Dale Phurrough https://hidale.com/
+
 ABS_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 if [ "$1" == "--setup" ]; then
-    (crontab -l | grep -v $(basename "$0"); echo "2-59/3 * * * * $ABS_PATH") | crontab -
+    (crontab -l | grep -v -F $(basename "$ABS_PATH"); echo "1-59/2 * * * * $ABS_PATH") | crontab -
     exit 0
 elif [ "$1" == "--setup-etccrond" ]; then
     cat > /etc/cron.d/cloudwatch-metrics <<EOF
@@ -23,14 +27,17 @@ REGION=${AVAIL_ZONE::-1}
 df -k -l --type=ext4 -P | grep ^/ | while read -r line; do
     VOL_UTIL_PERC=$(echo $line | cut -d' ' -f5 | tr -d '%')
     MOUNT=$(echo $line | cut -d' ' -f6)
-    if grep -q -E 'docker/plugins' <<< "$MOUNT"; then
+    if grep -q -F 'docker/plugins' <<< "$MOUNT"; then
         # simplify docker managed volume plugin path for metrics
         MOUNT="docker/plugins$(grep -o -E '/[^/]+$' <<< "$MOUNT")"
+    elif grep -q -F 'docker/runtime-runc/moby' <<< "$MOUNT"; then
+        # skip docker internal-use volumes
+        continue
     fi
     aws cloudwatch put-metric-data --region $REGION --metric-name DiskSpaceUtilization --namespace Custom/EC2 --unit Percent --value $VOL_UTIL_PERC --dimensions "InstanceId=${INST_ID},InstanceType=${INST_TYPE},AvailabilityZone=${AVAIL_ZONE}${ECS_CLUSTER:+,ClusterName=}${ECS_CLUSTER},Mount=${MOUNT}"
 done
 
-MEMINFO=$(free -m | grep Mem)
+MEMINFO=$(free -m | grep -F Mem)
 MEM_TOTAL=$(echo $MEMINFO | cut -d' ' -f2)
 MEM_AVAIL=$(( 100 * $(echo $MEMINFO | cut -d' ' -f7) ))
 MEM_AVAIL_PERC=$(($MEM_AVAIL / $MEM_TOTAL))
