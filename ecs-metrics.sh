@@ -32,6 +32,7 @@ jq "[.[] | {time: .read, \
             containerId: .id, \
             containerName: .dcName, \
             currentMem: .memory_stats.usage, \
+            fileCache: (.memory_stats.stats.active_file + .memory_stats.stats.inactive_file), \
             maxMem: .memory_stats.max_usage, \
             percentMemOfTask: (100 * (.memory_stats.usage - .memory_stats.stats.active_file - .memory_stats.stats.inactive_file) / (if (.memory_stats.stats.hierarchical_memory_limit == 9223372036854771712) then .memory_stats.limit else .memory_stats.stats.hierarchical_memory_limit end)), \
             percentMemOfHost: (100 * (.memory_stats.usage - .memory_stats.stats.active_file - .memory_stats.stats.inactive_file) / .memory_stats.limit), \
