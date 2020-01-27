@@ -23,6 +23,7 @@ jq -s '[ .[0] + .[1] | group_by(.id)[] | select(length > 1) | add ]' \
 # https://docs.docker.com/config/containers/runmetrics/
 # https://docs.docker.com/engine/api/v1.30/#operation/ContainerStats
 # https://stackoverflow.com/questions/30271942/get-docker-container-cpu-usage-as-percentage
+# 27 Jan 2020: changed usage to be app memory usage + tmpfs; no longer includes page cache
 jq "[.[] | {time: .read, \
             cluster: \"${ECS_CLUSTER}\", \
             service: \"${ECS_SERVICE}\", \
@@ -32,8 +33,8 @@ jq "[.[] | {time: .read, \
             containerName: .dcName, \
             currentMem: .memory_stats.usage, \
             maxMem: .memory_stats.max_usage, \
-            percentMemOfTask: (100 * .memory_stats.usage / (if (.memory_stats.stats.hierarchical_memory_limit == 9223372036854771712) then .memory_stats.limit else .memory_stats.stats.hierarchical_memory_limit end)), \
-            percentMemOfHost: (100 * .memory_stats.usage / .memory_stats.limit), \
+            percentMemOfTask: (100 * (.memory_stats.usage - .memory_stats.stats.active_file - .memory_stats.stats.inactive_file) / (if (.memory_stats.stats.hierarchical_memory_limit == 9223372036854771712) then .memory_stats.limit else .memory_stats.stats.hierarchical_memory_limit end)), \
+            percentMemOfHost: (100 * (.memory_stats.usage - .memory_stats.stats.active_file - .memory_stats.stats.inactive_file) / .memory_stats.limit), \
             tmpfsMem: (.memory_stats.stats.cache - .memory_stats.stats.active_file - .memory_stats.stats.inactive_file), \
             tmpfsMem2: (.memory_stats.stats.active_anon + .memory_stats.stats.inactive_anon - .memory_stats.stats.rss), \
             percentCpuOfTask: (100 * (.cpu_stats.cpu_usage.total_usage - .precpu_stats.cpu_usage.total_usage) / (.cpu_stats.system_cpu_usage - .precpu_stats.system_cpu_usage) * .cpu_stats.online_cpus / (if (.taskLimits.CPU > 0) then .taskLimits.CPU else .cpu_stats.online_cpus end)), \
