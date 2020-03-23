@@ -118,48 +118,48 @@ for chunk in $SPLITS; do
     }" $chunk | jq -s . > cloudwatch.json
     aws cloudwatch put-metric-data --region $REGION --namespace Custom/ECS --metric-data file://cloudwatch.json
 
-    jq --raw-input "split(\"\t\") | {\
-        MetricName: \"MemoryMax\",\
-        Timestamp: .[0],\
-        Value: (.[8] | tonumber),\
-        Unit: \"Bytes\",\
-        StorageResolution: 60,\
-        Dimensions: [\
-            {\
-                Name: \"AvailabilityZone\",\
-                Value: \"${AVAIL_ZONE}\"\
-            },\
-            {\
-                Name: \"ClusterName\",\
-                Value: .[1]\
-            },\
-            {\
-                Name: \"InstanceId\",\
-                Value: \"${INST_ID}\"\
-            },\
-            {\
-                Name: \"InstanceType\",\
-                Value: \"${INST_TYPE}\"\
-            },\
-            {\
-                Name: \"ServiceName\",\
-                Value: .[2]\
-            },\
-            {\
-                Name: \"TaskId\",\
-                Value: .[3]\
-            },\
-            {\
-                Name: \"ContainerId\",\
-                Value: .[4]\
-            },\
-            {\
-                Name: \"ContainerName\",\
-                Value: .[5]\
-            }\
-        ]\
-    }" $chunk | jq -s . > cloudwatch.json
-    aws cloudwatch put-metric-data --region $REGION --namespace Custom/ECS --metric-data file://cloudwatch.json
+    #jq --raw-input "split(\"\t\") | {\
+    #    MetricName: \"MemoryMax\",\
+    #    Timestamp: .[0],\
+    #    Value: (.[8] | tonumber),\
+    #    Unit: \"Bytes\",\
+    #    StorageResolution: 60,\
+    #    Dimensions: [\
+    #        {\
+    #            Name: \"AvailabilityZone\",\
+    #            Value: \"${AVAIL_ZONE}\"\
+    #        },\
+    #        {\
+    #            Name: \"ClusterName\",\
+    #            Value: .[1]\
+    #        },\
+    #        {\
+    #            Name: \"InstanceId\",\
+    #            Value: \"${INST_ID}\"\
+    #        },\
+    #        {\
+    #            Name: \"InstanceType\",\
+    #            Value: \"${INST_TYPE}\"\
+    #        },\
+    #        {\
+    #            Name: \"ServiceName\",\
+    #            Value: .[2]\
+    #        },\
+    #        {\
+    #            Name: \"TaskId\",\
+    #            Value: .[3]\
+    #        },\
+    #        {\
+    #            Name: \"ContainerId\",\
+    #            Value: .[4]\
+    #        },\
+    #        {\
+    #            Name: \"ContainerName\",\
+    #            Value: .[5]\
+    #        }\
+    #    ]\
+    #}" $chunk | jq -s . > cloudwatch.json
+    #aws cloudwatch put-metric-data --region $REGION --namespace Custom/ECS --metric-data file://cloudwatch.json
 
     jq --raw-input "split(\"\t\") | {\
         MetricName: \"CPUUtilizationTask\",\
@@ -203,6 +203,7 @@ for chunk in $SPLITS; do
         ]\
     }" $chunk | jq -s . > cloudwatch.json
     aws cloudwatch put-metric-data --region $REGION --namespace Custom/ECS --metric-data file://cloudwatch.json
+
     rm -f $chunk
 
 done
