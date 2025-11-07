@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-ecr_base='036129835789.dkr.ecr.us-east-1.amazonaws.com'
+repo_base='036129835789.dkr.ecr.us-east-1.amazonaws.com'
 namespace='aws-cloudwatch-metrics'
 region='us-east-1'
 
@@ -33,37 +33,34 @@ case "$1" in
         ;;
 esac
 
-if [[ "$1" =~ ^(dev|test|prod)$ ]]; then
-
-    #timestamp=$(date --utc +%FT%TZ)
-    githash=$(git log -1 --pretty=%h)
-    [[ -n "$(git status --short)" ]] && gitdirty='-dirty'
-    tag="${githash}${gitdirty}"
-    echo "Tagging as: ${tag}"
-
-    if [[ "$1" == "prod" && -n "$gitdirty" ]]; then
-        echo "Error: git status dirty, PROD action denied" >&2
-        exit 1
-    fi
-
-    ENVTIER=${1} docker build $PULL -f ecs-metrics.dockerfile \
-        -t ${namespace}/ecs-metrics \
-        -t ${namespace}/ecs-metrics:${tag} \
-        -t ${namespace}/ecs-metrics:${1} \
-        .
-
-    images="$(docker image ls | grep -E "^${namespace}/\S+\s+${tag}" | awk '{print $1}')"
-    if [ "$1" != 'dev' ]; then
-        for item in $images; do
-            docker tag "${item}:${tag}" "${ecr_base}/${item}:${tag}"
-            docker tag "${item}:${tag}" "${ecr_base}/${item}:${1}"
-            docker push "${ecr_base}/${item}:${tag}"
-            docker push "${ecr_base}/${item}:${1}"
-        done
-    fi
-
-else
+# Abort early if the environment is NOT one of dev|test|prod
+if [[ ! "$1" =~ ^(dev|test|prod)$ ]]; then
     echo "Aborting. No $1 operations with this script" >&2
     exit 1
+fi
+env_tier="$1"
 
+# calculate tag for images
+githash=$(git log -1 --pretty=%h)
+[[ -n "$(git status --short)" ]] && gitdirty='-dirty'
+tag="${env_tier}-${githash}${gitdirty}"
+
+if [[ "$env_tier" == "prod" && -n "$gitdirty" ]]; then
+    echo "Error: git status dirty, PROD action denied" >&2
+    exit 1
+fi
+
+echo "Building with tags: ${tag}, ${env_tier}"
+docker build $PULL -f ecs-metrics.dockerfile \
+    -t "${namespace}/ecs-metrics:${tag}" \
+    -t "${namespace}/ecs-metrics:${env_tier}" \
+    -t "${repo_base}/${namespace}/ecs-metrics:${tag}" \
+    -t "${repo_base}/${namespace}/ecs-metrics:${env_tier}" \
+    .
+
+if [ "$env_tier" != 'dev' ]; then
+    # push image to ecr
+    aws ecr get-login-password --region $region | docker login --username AWS --password-stdin $repo_base
+    docker push "${repo_base}/${namespace}/ecs-metrics:${tag}"
+    docker push "${repo_base}/${namespace}/ecs-metrics:${env_tier}"
 fi
