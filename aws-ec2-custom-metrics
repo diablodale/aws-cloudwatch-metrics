@@ -1,8 +1,8 @@
 #!/bin/bash -e
 
 # AWS Cloudwatch Custom Metrics for EC2 and ECS
-# Version 1.0.0
-# (c) 2017-2020 Dale Phurrough https://hidale.com/
+# Version 1.1.0
+# (c) 2017-2025 Dale Phurrough https://hidale.com/
 
 ABS_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 if [ "$1" == "--setup" ]; then
@@ -34,7 +34,7 @@ df -k -l --type=ext4 -P | grep ^/ | while read -r line; do
         # skip docker internal-use volumes
         continue
     fi
-    aws cloudwatch put-metric-data --region $REGION --metric-name DiskSpaceUtilization --namespace Custom/EC2 --unit Percent --value $VOL_UTIL_PERC --dimensions "InstanceId=${INST_ID},InstanceType=${INST_TYPE},AvailabilityZone=${AVAIL_ZONE}${ECS_CLUSTER:+,ClusterName=}${ECS_CLUSTER},Mount=${MOUNT}"
+    aws cloudwatch put-metric-data --region $REGION --metric-name DiskSpaceUtilization --namespace Custom/EC2 --unit Percent --value $VOL_UTIL_PERC --dimensions "InstanceId=${INST_ID},Mount=${MOUNT}"
 done
 
 MEMINFO=$(free -m | grep -F Mem)
@@ -42,7 +42,7 @@ MEM_TOTAL=$(echo $MEMINFO | cut -d' ' -f2)
 MEM_AVAIL=$(( 100 * $(echo $MEMINFO | cut -d' ' -f7) ))
 MEM_AVAIL_PERC=$(($MEM_AVAIL / $MEM_TOTAL))
 MEM_UTIL_PERC=$((100 - $MEM_AVAIL_PERC))
-aws cloudwatch put-metric-data --region $REGION --metric-name MemoryUtilization --namespace Custom/EC2 --unit Percent --value $MEM_UTIL_PERC --dimensions "InstanceId=${INST_ID},InstanceType=${INST_TYPE},AvailabilityZone=${AVAIL_ZONE}${ECS_CLUSTER:+,ClusterName=}${ECS_CLUSTER}"
+aws cloudwatch put-metric-data --region $REGION --metric-name MemoryUtilization --namespace Custom/EC2 --unit Percent --value $MEM_UTIL_PERC --dimensions "InstanceId=${INST_ID}"
 
 #####
 # forward metrics collected by containers and placed in /run/ecs-custom-metrics
@@ -76,16 +76,12 @@ SPLITS="$(ls split_*)"
 for chunk in $SPLITS; do
 
     jq --raw-input "split(\"\t\") | {\
-        MetricName: \"MemoryUtilizationTask\",\
+        MetricName: \"MemoryUtilizationContainer\",\
         Timestamp: .[0],\
         Value: (.[6] | tonumber),\
         Unit: \"Percent\",\
         StorageResolution: 60,\
         Dimensions: [\
-            {\
-                Name: \"AvailabilityZone\",\
-                Value: \"${AVAIL_ZONE}\"\
-            },\
             {\
                 Name: \"ClusterName\",\
                 Value: .[1]\
@@ -95,20 +91,12 @@ for chunk in $SPLITS; do
                 Value: \"${INST_ID}\"\
             },\
             {\
-                Name: \"InstanceType\",\
-                Value: \"${INST_TYPE}\"\
-            },\
-            {\
                 Name: \"ServiceName\",\
                 Value: .[2]\
             },\
             {\
                 Name: \"TaskId\",\
                 Value: .[3]\
-            },\
-            {\
-                Name: \"ContainerId\",\
-                Value: .[4]\
             },\
             {\
                 Name: \"ContainerName\",\
@@ -162,16 +150,12 @@ for chunk in $SPLITS; do
     #aws cloudwatch put-metric-data --region $REGION --namespace Custom/ECS --metric-data file://cloudwatch.json
 
     jq --raw-input "split(\"\t\") | {\
-        MetricName: \"CPUUtilizationTask\",\
+        MetricName: \"CPUUtilizationContainer\",\
         Timestamp: .[0],\
         Value: (.[7] | tonumber),\
         Unit: \"Percent\",\
         StorageResolution: 60,\
         Dimensions: [\
-            {\
-                Name: \"AvailabilityZone\",\
-                Value: \"${AVAIL_ZONE}\"\
-            },\
             {\
                 Name: \"ClusterName\",\
                 Value: .[1]\
@@ -181,20 +165,12 @@ for chunk in $SPLITS; do
                 Value: \"${INST_ID}\"\
             },\
             {\
-                Name: \"InstanceType\",\
-                Value: \"${INST_TYPE}\"\
-            },\
-            {\
                 Name: \"ServiceName\",\
                 Value: .[2]\
             },\
             {\
                 Name: \"TaskId\",\
                 Value: .[3]\
-            },\
-            {\
-                Name: \"ContainerId\",\
-                Value: .[4]\
             },\
             {\
                 Name: \"ContainerName\",\
