@@ -18,3 +18,16 @@ docker build -f ecs-metrics.dockerfile -t ecs-metrics -t ecs-metrics:$(git log -
    ```bash
    docker run -v /run/ecsm:/mnt/ecs-metrics ecs-metrics
    ```
+
+## Alternates
+
+An AWS-provided distribution of the OpenTelemetry project. Known as ADOT.
+
+https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/deploy-container-insights-ECS-adot.html
+
+https://aws-otel.github.io/docs/setup/ecs
+
+https://aws.amazon.com/blogs/containers/cost-savings-by-customizing-metrics-sent-by-container-insights-in-amazon-eks/
+
+https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/awsecscontainermetricsreceiver#available-metrics
+
