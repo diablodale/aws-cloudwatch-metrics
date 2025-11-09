@@ -50,17 +50,20 @@ if [[ "$env_tier" == "prod" && -n "$gitdirty" ]]; then
     exit 1
 fi
 
-echo "Building with tags: ${tag}, ${env_tier}"
+# Create and use a multiplatform builder
+echo "Building multiplatform with tags: ${tag}, ${env_tier}"
+#docker buildx create --use --name multiplatform-builder || docker buildx use multiplatform-builder
+
+# Authenticate Docker to AWS ECR
+aws ecr get-login-password --region $region | docker login --username AWS --password-stdin $repo_base
+
+# Build and push multiplatform image
+# often written `docker buildx build` yet `docker build` on docker desktop is an alias for the same
 docker build $PULL -f ecs-metrics.dockerfile \
-    -t "${namespace}/ecs-metrics:${tag}" \
-    -t "${namespace}/ecs-metrics:${env_tier}" \
+    --platform linux/amd64,linux/arm64 \
     -t "${repo_base}/${namespace}/ecs-metrics:${tag}" \
     -t "${repo_base}/${namespace}/ecs-metrics:${env_tier}" \
+    --push \
     .
 
-if [ "$env_tier" != 'dev' ]; then
-    # push image to ecr
-    aws ecr get-login-password --region $region | docker login --username AWS --password-stdin $repo_base
-    docker push "${repo_base}/${namespace}/ecs-metrics:${tag}"
-    docker push "${repo_base}/${namespace}/ecs-metrics:${env_tier}"
-fi
+# Note: Local tags are not created; use --load for local testing if needed
