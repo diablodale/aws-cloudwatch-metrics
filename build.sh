@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-repo_base='036129835789.dkr.ecr.us-east-1.amazonaws.com'
+registry='036129835789.dkr.ecr.us-east-1.amazonaws.com'
 namespace='aws-cloudwatch-metrics'
 region='us-east-1'
 
@@ -22,7 +22,7 @@ fi
 
 case "$1" in
     --pull)
-        PULL='--pull --no-cache'
+        pull='--pull --no-cache'
         shift
         ;;
     -*|--*)
@@ -43,27 +43,40 @@ env_tier="$1"
 # calculate tag for images
 githash=$(git log -1 --pretty=%h)
 [[ -n "$(git status --short)" ]] && gitdirty='-dirty'
-tag="${env_tier}-${githash}${gitdirty}"
-
-if [[ "$env_tier" == "prod" && -n "$gitdirty" ]]; then
-    echo "Error: git status dirty, PROD action denied" >&2
+if [[ "$env_tier" != "dev" && -n "$gitdirty" ]]; then
+    echo "Error: git status dirty, action denied" >&2
     exit 1
 fi
+tag="${env_tier}-${githash}${gitdirty}"
+
+# dev has no registry
+if [[ "$env_tier" == "dev" ]]; then
+    registry=''
+else
+    registry="${registry}/"
+    push='--push'
+    # Authenticate Docker to AWS ECR
+    aws ecr get-login-password --region $region | docker login --username AWS --password-stdin $registry
+fi
+
 
 # Create and use a multiplatform builder
 echo "Building multiplatform with tags: ${tag}, ${env_tier}"
 #docker buildx create --use --name multiplatform-builder || docker buildx use multiplatform-builder
 
-# Authenticate Docker to AWS ECR
-aws ecr get-login-password --region $region | docker login --username AWS --password-stdin $repo_base
-
 # Build and push multiplatform image
 # often written `docker buildx build` yet `docker build` on docker desktop is an alias for the same
-docker build $PULL -f ecs-metrics.dockerfile \
+# Note: Local tags are not created; use --load for local testing if needed
+docker build $pull -f ecs-metrics.dockerfile \
     --platform linux/amd64,linux/arm64 \
-    -t "${repo_base}/${namespace}/ecs-metrics:${tag}" \
-    -t "${repo_base}/${namespace}/ecs-metrics:${env_tier}" \
-    --push \
+    -t "${registry}${namespace}/ecs-metrics:${tag}" \
+    -t "${registry}${namespace}/ecs-metrics:${env_tier}" \
+    $push \
     .
 
-# Note: Local tags are not created; use --load for local testing if needed
+# git push to origin with tier as the branch
+if [[ "$env_tier" != "dev" ]]; then
+    git checkout -B "${env_tier}"
+    git push origin "${env_tier}"
+    git checkout -
+fi
