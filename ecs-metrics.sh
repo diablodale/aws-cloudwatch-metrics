@@ -24,6 +24,14 @@ jq -s '[ .[0] + .[1] | group_by(.id)[] | select(length > 1) | add ]' \
 # https://docs.docker.com/engine/api/v1.30/#operation/ContainerStats
 # https://stackoverflow.com/questions/30271942/get-docker-container-cpu-usage-as-percentage
 # 27 Jan 2020: changed usage to be app memory usage + tmpfs; no longer includes page cache
+# cgroup v2 (Amazon Linux 2023): the Docker /task/stats memory shape differs from cgroup v1.
+#   v1-only fields are null on v2, so we map to v2 equivalents below:
+#     hierarchical_memory_limit -> .memory_stats.limit ; rss -> anon ; cache/tmpfs -> shmem ;
+#     page cache -> active_file + inactive_file (all present on v2).
+#   max_usage (peak) has NO cgroup v2 equivalent in /task/stats -- the kernel tracks memory.peak
+#   (>= 5.19) but Docker does not surface it here -- so .memory_stats.max_usage is null and maxMem
+#   is null on AL2023 hosts. For peak memory, use CloudWatch's Maximum statistic over
+#   percentMemOfTask / currentMem instead of an instantaneous max.
 jq "[.[] | {time: .read, \
             cluster: \"${ECS_CLUSTER}\", \
             service: \"${ECS_SERVICE}\", \
@@ -32,12 +40,12 @@ jq "[.[] | {time: .read, \
             containerId: .id, \
             containerName: .dcName, \
             currentMem: .memory_stats.usage, \
-            fileCache: (.memory_stats.stats.active_file + .memory_stats.stats.inactive_file), \
+            fileCache: ((.memory_stats.stats.active_file // 0) + (.memory_stats.stats.inactive_file // 0)), \
             maxMem: .memory_stats.max_usage, \
-            percentMemOfTask: (100 * (.memory_stats.usage - .memory_stats.stats.active_file - .memory_stats.stats.inactive_file) / (if (.memory_stats.stats.hierarchical_memory_limit == 9223372036854771712) then .memory_stats.limit else .memory_stats.stats.hierarchical_memory_limit end)), \
-            percentMemOfHost: (100 * (.memory_stats.usage - .memory_stats.stats.active_file - .memory_stats.stats.inactive_file) / .memory_stats.limit), \
-            tmpfsMem: (.memory_stats.stats.cache - .memory_stats.stats.active_file - .memory_stats.stats.inactive_file), \
-            tmpfsMem2: (.memory_stats.stats.active_anon + .memory_stats.stats.inactive_anon - .memory_stats.stats.rss), \
+            percentMemOfTask: (100 * (.memory_stats.usage - (.memory_stats.stats.active_file // 0) - (.memory_stats.stats.inactive_file // 0)) / (if ((.memory_stats.stats.hierarchical_memory_limit // .memory_stats.limit) >= 9223372036854771712) then .memory_stats.limit else (.memory_stats.stats.hierarchical_memory_limit // .memory_stats.limit) end)), \
+            percentMemOfHost: (100 * (.memory_stats.usage - (.memory_stats.stats.active_file // 0) - (.memory_stats.stats.inactive_file // 0)) / .memory_stats.limit), \
+            tmpfsMem: (.memory_stats.stats.shmem // ((.memory_stats.stats.cache // 0) - (.memory_stats.stats.active_file // 0) - (.memory_stats.stats.inactive_file // 0))), \
+            tmpfsMem2: ((.memory_stats.stats.active_anon // 0) + (.memory_stats.stats.inactive_anon // 0) - (.memory_stats.stats.rss // .memory_stats.stats.anon // 0)), \
             percentCpuOfTask: (100 * (.cpu_stats.cpu_usage.total_usage - .precpu_stats.cpu_usage.total_usage) / (.cpu_stats.system_cpu_usage - .precpu_stats.system_cpu_usage) * .cpu_stats.online_cpus / (if (.taskLimits.CPU > 0) then .taskLimits.CPU else .cpu_stats.online_cpus end)), \
             percentCpuOfHost: (100 * (.cpu_stats.cpu_usage.total_usage - .precpu_stats.cpu_usage.total_usage) / (.cpu_stats.system_cpu_usage - .precpu_stats.system_cpu_usage)), \
             percentThrottle: (if (.cpu_stats.throttling_data.periods - .precpu_stats.throttling_data.periods) == 0 then 0 else 100 * (.cpu_stats.throttling_data.throttled_periods - .precpu_stats.throttling_data.throttled_periods) / (.cpu_stats.throttling_data.periods - .precpu_stats.throttling_data.periods) end), \

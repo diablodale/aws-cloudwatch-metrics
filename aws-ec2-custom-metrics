@@ -108,6 +108,13 @@ for chunk in $SPLITS; do
     }" $chunk | jq -s . > cloudwatch.json
     aws cloudwatch put-metric-data --region $REGION --namespace Custom/ECS --metric-data file://cloudwatch.json
 
+    # CAVEAT (AL2023 / cgroup v2): ecs-metrics.sh sets maxMem to null on cgroup v2 -- Docker's
+    # /task/stats has no peak field there (kernel memory.peak is not surfaced through it). jq @tsv
+    # writes null as an EMPTY field, so .[8] here is "" and (.[8] | tonumber) below would error.
+    # Before re-enabling this MemoryMax block on AL2023, guard the value, e.g.:
+    #     Value: (if .[8] == "" then null else (.[8] | tonumber) end),
+    # and skip emitting the datapoint when null. For peak memory, prefer CloudWatch's Maximum
+    # statistic over percentMemOfTask / currentMem rather than an instantaneous max.
     #jq --raw-input "split(\"\t\") | {\
     #    MetricName: \"MemoryMax\",\
     #    Timestamp: .[0],\
