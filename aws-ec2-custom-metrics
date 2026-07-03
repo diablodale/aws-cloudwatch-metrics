@@ -18,9 +18,11 @@ EOF
     exit 0
 fi
 
-INST_ID=$(curl -sS http://169.254.169.254/latest/meta-data/instance-id)
-INST_TYPE=$(curl -sS http://169.254.169.254/latest/meta-data/instance-type)
-AVAIL_ZONE=$(curl -sS http://169.254.169.254/latest/meta-data/placement/availability-zone)
+IMDS_TOKEN=$(curl -sS -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 300")
+IMDS_HDR="X-aws-ec2-metadata-token: $IMDS_TOKEN"
+INST_ID=$(curl -sS -H "$IMDS_HDR" http://169.254.169.254/latest/meta-data/instance-id)
+INST_TYPE=$(curl -sS -H "$IMDS_HDR" http://169.254.169.254/latest/meta-data/instance-type)
+AVAIL_ZONE=$(curl -sS -H "$IMDS_HDR" http://169.254.169.254/latest/meta-data/placement/availability-zone)
 ECS_CLUSTER=$(grep -E '^ECS_CLUSTER' /etc/ecs/ecs.config | grep -o -E '[^=]+$')
 REGION=${AVAIL_ZONE::-1}
 
